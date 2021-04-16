@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
@@ -18,6 +19,16 @@ namespace AzBulkSetBlobTier
             Host.CreateDefaultBuilder(args)
                 .ConfigureServices((hostContext, services) =>
                 {
+                    services
+                        .AddApplicationInsightsTelemetryWorkerService(hostContext.Configuration["APPINSIGHTS_INSTRUMENTATIONKEY"])
+                        .AddApplicationInsightsTelemetryProcessor<DependencyFilter>();
+
+                    var config = new Config();
+                    hostContext.Configuration.Bind(config);
+                    config.Run = Guid.NewGuid().ToString();
+
+                    services.AddSingleton(config);
+
                     services.AddHostedService<Worker>();
                 });
     }
