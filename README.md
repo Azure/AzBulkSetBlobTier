@@ -20,16 +20,21 @@ The goal of this sample application is to show an efficient way to queue all the
 
 Moving objects from Archive to Hot or Cool storage is a two step process:
 
-- Step 1: you call the SetBlobTier API to enque a request to Azure Storage to perform the move
+- Step 1: you call the SetBlobTier API to enqueue a request to Azure Storage to perform the move
 - Step 2: Azure Storage performs the move
 
-This project is focused on performing Step 1 as fast as possble. 
+This project is focused on performing Step 1 as fast as possible. 
+
 The time it takes to perform Step 2 is dependent on a number of factors like if you asked for "High priority" rehydration, how busy the tape library is, what size the files you are rehydrating are, how many tapes the files are distributed on, etc.
 
 More info on the rehydration process can be found in the Azure Docs here: [Rehydrate blob data from the archive tier](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration)
 
 
 In this sample we are sharing 2 options, one using PowerShell and another using a .NET Docker Container. The first option is very lightweight, however doesn't include some of the features of the .NET option. 
+
+## Considerations
+
+Both of these options require iterating over all the objects in the storage account and calling the API to request that the objects be moved from Archive to Hot/Cool. The number of files you have will drive how long this process will take and how many transactions you will consume. Moreover, the data retrieval costs are based on the amount of data you need to restore. Consult the [Pricing section](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration?#pricing-and-billing) of the Azure Docs to learn more.
 
 
 ## PowerShell Option
@@ -38,7 +43,7 @@ This option uses PowerShell to first get a list of all the objects in Azure Stor
 
 Recommendations
  - Run this from a VM in the same region as the Storage account to reduce network latency
- - Run multiple copies based on non-overlaping prefix ranges, [see the docs for more details on how the prefix parameter works](https://docs.microsoft.com/powershell/module/az.storage/get-azstorageblob#parameters)
+ - Run multiple copies based on non-overlapping prefix ranges, [see the docs for more details on how the prefix parameter works](https://docs.microsoft.com/powershell/module/az.storage/get-azstorageblob#parameters)
 
 
 ``` powershell
@@ -82,7 +87,7 @@ This option leverages:
   - Threads are spawned based on the naming convention in your storage account using a `/` as the delimiter, see [here](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.getblobsbyhierarchy) for more info.
 - Use of the [Batch API](https://docs.microsoft.com/rest/api/storageservices/blob-batch) to reduce calls to SetBlobTier
 - Deployment to an [Azure Container Instance](https://azure.microsoft.com/services/container-instances/) to reduce network latency vs running over the internet
-- Monioring with [Application Insights](https://docs.microsoft.com/azure/azure-monitor/app/app-insights-overview)
+- Monitoring with [Application Insights](https://docs.microsoft.com/azure/azure-monitor/app/app-insights-overview)
 
 You can deploy the sample as is or modify it to fit your unique needs.
 
