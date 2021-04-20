@@ -25,7 +25,7 @@ Moving objects from Archive to Hot or Cool storage is a two step process:
 
 This project is focused on performing Step 1 as fast as possible. 
 
-The time it takes to perform Step 2 is dependent on a number of factors like if you asked for "High priority" rehydration, how busy the tape library is, what size the files you are rehydrating are, how many tapes the files are distributed on, etc.
+The time it takes to perform Step 2 is dependent on several factors like if you asked for "High priority" rehydration, how busy the back end is, what size the files you are rehydrating are, how well the files are distributed, etc.
 
 More info on the rehydration process can be found in the Azure Docs here: [Rehydrate blob data from the archive tier](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration)
 
