@@ -49,7 +49,7 @@ Recommendations
 ``` powershell
 $storageAccountName = ""     # Enter account name
 $storageContainer =  ""           # Enter specific container
-$prefix = "0x14"                      # Set prefix for scanning
+$prefix = "a"                      # Set prefix for scanning
 $MaxReturn = 10000
 $count = 0
 $StorageAccountKey = "" # Enter account/sas key
