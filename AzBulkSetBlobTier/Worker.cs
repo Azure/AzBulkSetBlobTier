@@ -176,7 +176,7 @@ namespace AzBulkSetBlobTier
             //Create a new task to process the folder
             _todo.Add(Task.Run(async () =>
             {
-                _slim.Wait();
+                await _slim.WaitAsync(stoppingToken);
 
                 using (var op = _telemetryClient.StartOperation<DependencyTelemetry>("ProcessFolder"))
                 {
