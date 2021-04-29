@@ -16,7 +16,6 @@ namespace AzBulkSetBlobTier
 {
     public class Worker : BackgroundService
     {
-        private const string DELIMITER = "/";
         private readonly ILogger<Worker> _logger;
         private readonly IHostApplicationLifetime _hostApplicationLifetime;
         private TelemetryClient _telemetryClient;
@@ -35,6 +34,9 @@ namespace AzBulkSetBlobTier
         private long _blobArchiveToHotBytes;
         private long _blobArchiveToCoolCount;
         private long _blobArchiveToCoolBytes;
+        private AccessTier _targetAccessTier;
+        private AccessTier _sourceAccessTier;
+        private bool _configValid = true;
 
 
 
@@ -51,19 +53,26 @@ namespace AzBulkSetBlobTier
 
             using (var op = _telemetryClient.StartOperation<DependencyTelemetry>("Setup"))
             {
-
                 _logger.LogInformation($"Run = {_config.Run}");
                 op.Telemetry.Properties.Add("Run", _config.Run);
+
+                //Default the delimiter to a slash if not provided
+                if (string.IsNullOrEmpty(_config.Delimiter))
+                {
+                    _config.Delimiter = "/";
+                }
+                _logger.LogInformation($"Delimiter = {_config.Delimiter}");
+                op.Telemetry.Properties.Add("Delimiter", _config.Delimiter);
 
                 //Set the starting point to the root if not provided
                 if (string.IsNullOrEmpty(_config.Prefix))
                 {
                     _config.Prefix = string.Empty;
                 }
-                //If starting point is provided, ensure that it has the slash at the end
-                else if (!_config.Prefix.EndsWith(DELIMITER))
+                //If starting point is provided, ensure that it has the delimiter at the end
+                else if (!_config.Prefix.EndsWith(_config.Delimiter))
                 {
-                    _config.Prefix = _config.Prefix + DELIMITER;
+                    _config.Prefix = _config.Prefix + _config.Delimiter;
                 }
                 _logger.LogInformation($"Prefix = {_config.Prefix}");
                 op.Telemetry.Properties.Add("Prefix", _config.Prefix);
@@ -78,12 +87,64 @@ namespace AzBulkSetBlobTier
 
                 //The Semaphore ensures how many scans can happen at the same time
                 _slim = new SemaphoreSlim(_config.ThreadCount);
-
+                
                 _logger.LogInformation($"WhatIf = {_config.WhatIf}");
                 op.Telemetry.Properties.Add("WhatIf", _config.WhatIf.ToString());
 
                 _logger.LogInformation($"TargetAccessTier = {_config.TargetAccessTier}");
                 op.Telemetry.Properties.Add("TargetAccessTier", _config.TargetAccessTier);
+
+                if (_config.TargetAccessTier.Equals("Hot", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    _targetAccessTier = AccessTier.Hot;
+                }
+                else if (_config.TargetAccessTier.Equals("Cool", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    _targetAccessTier = AccessTier.Cool;
+                }
+                else if (_config.TargetAccessTier.Equals("Archive", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    _targetAccessTier = AccessTier.Cool;
+                }
+                else
+                {
+                    _logger.LogError($"Invalid Target Access Tier of {_config.TargetAccessTier} must be either Hot, Cool or Archive.");
+                    _configValid = false;
+                }
+
+                _logger.LogInformation($"SourceAccessTier = {_config.SourceAccessTier}");
+                op.Telemetry.Properties.Add("SourceAccessTier", _config.SourceAccessTier);
+
+                if (_config.SourceAccessTier.Equals("Hot", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    _sourceAccessTier = AccessTier.Hot;
+                }
+                else if (_config.SourceAccessTier.Equals("Cool", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    _sourceAccessTier = AccessTier.Cool;
+                }
+                else if (_config.SourceAccessTier.Equals("Archive", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    _sourceAccessTier = AccessTier.Cool;
+                }
+                else
+                {
+                    _logger.LogError($"Invalid Source Access Tier of {_config.SourceAccessTier} must be either Hot, Cool or Archive.");
+                    _configValid = false;
+                }
+
+                if (_sourceAccessTier.Equals(_targetAccessTier))
+                {
+                    _logger.LogError($"Invalid Source/Target Access Tier they cannot be the same.");
+                    _configValid = false;
+                }
+
+                if (string.IsNullOrEmpty(config.Container))
+                {
+                    _logger.LogError($"No Storage Container Name Provided.");
+                    _configValid = false;
+                }
+
             }
         }
 
@@ -96,7 +157,10 @@ namespace AzBulkSetBlobTier
 
             try
             {
-                await DoWork(stoppingToken);
+                if (_configValid)
+                {
+                    await DoWork(stoppingToken);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -132,7 +196,7 @@ namespace AzBulkSetBlobTier
                 while (_todo.Any(x => !x.IsCompleted))
                 {
                     LogStatus();
-                    await Task.Delay(1000);
+                    await Task.Delay(10000);
                 }
 
                 _logger.LogInformation("Done!");
@@ -153,6 +217,9 @@ namespace AzBulkSetBlobTier
             }
         }
 
+        /// <summary>
+        /// Log information to the default logger
+        /// </summary>
         private void LogStatus()
         {
             _logger.LogInformation($"Blobs: {_blobCount:N0} in {BytesToTiB(_blobBytes):N2} TiB");
@@ -161,24 +228,33 @@ namespace AzBulkSetBlobTier
             _logger.LogInformation($"Archive Blobs: {_blobArchiveCount:N0} in {BytesToTiB(_blobArchiveBytes):N2} TiB");
             _logger.LogInformation($"Archive To Hot Blobs: {_blobArchiveToHotCount:N0} in {BytesToTiB(_blobArchiveToHotBytes):N2} TiB");
             _logger.LogInformation($"Archive To Cool Blobs: {_blobArchiveToCoolCount:N0} in {BytesToTiB(_blobArchiveToCoolBytes):N2} TiB");
-            _logger.LogInformation($"Archive To Move Blobs: {_blobArchiveCount - _blobArchiveToHotCount - _blobArchiveToCoolCount:N0} in {BytesToTiB(_blobArchiveBytes - _blobArchiveToHotBytes - _blobArchiveToCoolBytes):N2} TiB");
         }
 
+        /// <summary>
+        /// convert bytes to TiBs
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
         private double BytesToTiB(long bytes)
         {
             return bytes / Math.Pow(2, 40);
         }
 
+        /// <summary>
+        /// Process a Folder/Prefix of objects from your storage account
+        /// </summary>
+        /// <param name="prefix"></param>
+        /// <param name="stoppingToken"></param>
         private void ProcessFolder(string prefix, CancellationToken stoppingToken)
         {
-            _logger.LogInformation($"Processing Folder {prefix}");
+            _logger.LogInformation($"Processing Prefix {prefix}");
 
             //Create a new task to process the folder
             _todo.Add(Task.Run(async () =>
             {
                 await _slim.WaitAsync(stoppingToken);
 
-                using (var op = _telemetryClient.StartOperation<DependencyTelemetry>("ProcessFolder"))
+                using (var op = _telemetryClient.StartOperation<DependencyTelemetry>("ProcessPrefix"))
                 {
                     op.Telemetry.Properties.Add("Run", _config.Run);
                     op.Telemetry.Properties.Add("Prefix", prefix);
@@ -188,51 +264,63 @@ namespace AzBulkSetBlobTier
                     var blobContainerClient = blobServiceClient.GetBlobContainerClient(_config.Container);
                     var uris = new Stack<Uri>();
 
-                    await foreach (var item in blobContainerClient.GetBlobsByHierarchyAsync(prefix: prefix, delimiter: DELIMITER, cancellationToken: stoppingToken))
+                    await foreach (var item in blobContainerClient.GetBlobsByHierarchyAsync(prefix: prefix, delimiter: _config.Delimiter, cancellationToken: stoppingToken))
                     {
                         //I found another folder, recurse
                         if (item.IsPrefix)
                         {
                             ProcessFolder(item.Prefix, stoppingToken);
                         }
-                        //I found a file, write it out to the json file
-                        else if (item.IsBlob)
+                        //I found a block blob, do I need to move it?
+                        else if (item.IsBlob && BlobType.Block.Equals(item.Blob.Properties.BlobType))
                         {
-                            //increment the counters
-                            Interlocked.Add(ref _blobCount, 1);
-                            Interlocked.Add(ref _blobBytes, item.Blob.Properties.ContentLength.GetValueOrDefault());
+                            InterlockedAdd(ref _blobCount, ref _blobBytes, item);
 
+                            //Hot Blob
                             if (AccessTier.Hot.Equals(item.Blob.Properties.AccessTier))
                             {
-                                Interlocked.Add(ref _blobHotCount, 1);
-                                Interlocked.Add(ref _blobHotBytes, item.Blob.Properties.ContentLength.GetValueOrDefault());
+                                InterlockedAdd(ref _blobHotCount, ref _blobHotBytes, item);
+
+                                if (_sourceAccessTier.Equals(AccessTier.Hot))
+                                {
+                                    uris.Push(blobContainerClient.GetBlobClient(item.Blob.Name).Uri);
+                                }
                             }
+
+                            //Cool Blob
                             else if (AccessTier.Cool.Equals(item.Blob.Properties.AccessTier))
                             {
-                                Interlocked.Add(ref _blobCoolCount, 1);
-                                Interlocked.Add(ref _blobCoolBytes, item.Blob.Properties.ContentLength.GetValueOrDefault());
+                                InterlockedAdd(ref _blobCoolCount, ref _blobCoolBytes, item);
+
+                                if (_sourceAccessTier.Equals(AccessTier.Cool))
+                                {
+                                    uris.Push(blobContainerClient.GetBlobClient(item.Blob.Name).Uri);
+                                }
                             }
+
+                            //Archive Blob
                             else if (AccessTier.Archive.Equals(item.Blob.Properties.AccessTier))
                             {
-                                Interlocked.Add(ref _blobArchiveCount, 1);
-                                Interlocked.Add(ref _blobArchiveBytes, item.Blob.Properties.ContentLength.GetValueOrDefault());
+                                InterlockedAdd(ref _blobArchiveCount, ref _blobArchiveBytes, item);
 
                                 if (item.Blob.Properties.ArchiveStatus.HasValue)
                                 {
                                     if (item.Blob.Properties.ArchiveStatus.Value == ArchiveStatus.RehydratePendingToHot)
                                     {
-                                        Interlocked.Add(ref _blobArchiveToHotCount, 1);
-                                        Interlocked.Add(ref _blobArchiveToHotBytes, item.Blob.Properties.ContentLength.GetValueOrDefault());
+                                        InterlockedAdd(ref _blobArchiveToHotCount, ref _blobArchiveToHotBytes, item);
                                     }
                                     else if (item.Blob.Properties.ArchiveStatus.Value == ArchiveStatus.RehydratePendingToCool)
                                     {
-                                        Interlocked.Add(ref _blobArchiveToCoolCount, 1);
-                                        Interlocked.Add(ref _blobArchiveToCoolBytes, item.Blob.Properties.ContentLength.GetValueOrDefault());
+                                        InterlockedAdd(ref _blobArchiveToCoolCount, ref _blobArchiveToCoolBytes, item);
                                     }
                                 }
                                 else
                                 {
-                                    uris.Push(blobContainerClient.GetBlobClient(item.Blob.Name).Uri);
+                                    // Only move Archive blobs if they are NOT already pending a move
+                                    if (_sourceAccessTier.Equals(AccessTier.Archive))
+                                    {
+                                        uris.Push(blobContainerClient.GetBlobClient(item.Blob.Name).Uri);
+                                    }
                                 }
                             }
                         }
@@ -257,6 +345,25 @@ namespace AzBulkSetBlobTier
 
         }
 
+        /// <summary>
+        /// increment the counter
+        /// </summary>
+        /// <param name="count">blob count counter</param>
+        /// <param name="bytes">blob bytes counter</param>
+        /// <param name="bhi">blob hierarchy item</param>
+        private void InterlockedAdd(ref long count, ref long bytes, BlobHierarchyItem bhi)
+        {
+            Interlocked.Add(ref count, 1);
+            Interlocked.Add(ref bytes, bhi.Blob.Properties.ContentLength.GetValueOrDefault());
+        }
+
+        /// <summary>
+        /// Call the batch API with a bunch of URLs to change the tier of
+        /// </summary>
+        /// <param name="blobServiceClient">connection to blob service</param>
+        /// <param name="uris">urls to move</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         private async Task ProcessBatch(BlobServiceClient blobServiceClient, IEnumerable<Uri> uris, CancellationToken cancellationToken)
         {
             _logger.LogInformation($"Sending Batch of {uris.Count()} items");
@@ -269,14 +376,7 @@ namespace AzBulkSetBlobTier
                 if (!_config.WhatIf)
                 {
                     BlobBatchClient batch = blobServiceClient.GetBlobBatchClient();
-                    if (_config.TargetAccessTier.Equals("Hot", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        await batch.SetBlobsAccessTierAsync(uris, AccessTier.Hot, cancellationToken: cancellationToken);
-                    }
-                    else
-                    {
-                        await batch.SetBlobsAccessTierAsync(uris, AccessTier.Cool, cancellationToken: cancellationToken);
-                    }
+                    await batch.SetBlobsAccessTierAsync(uris, _targetAccessTier, cancellationToken: cancellationToken);
                 }
             }
         }

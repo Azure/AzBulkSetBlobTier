@@ -16,25 +16,25 @@ urlFragment: azbulksetblobtier
 
 ** DRAFT **
 
-The goal of this sample application is to show an efficient way to queue all the objects in an Azure Storage Container for moving from Archive to Hot or Cool storage. 
+The goal of this sample application is to show an efficient way to queue all the objects in an Azure Storage Container for moving from/to any of the storage tiers Hot, Cool or Archive. 
 
-Moving objects from Archive to Hot or Cool storage is a two step process:
+Moving objects storage tiers is a two step process:
 
 - Step 1: you call the SetBlobTier API to enqueue a request to Azure Storage to perform the move
 - Step 2: Azure Storage performs the move
 
 This project is focused on performing Step 1 as fast as possible. 
 
-The time it takes to perform Step 2 is dependent on several factors like if you asked for "High priority" rehydration, how busy the back end is, what size the files you are rehydrating are, how well the files are distributed, etc.
+The time it takes to perform Step 2 is dependent on several factors. For example if you are moving from Archive and if you asked for "High priority" rehydration, how busy the back end is, what size the files you are rehydrating are, how well the files are distributed, etc.
 
-More info on the rehydration process can be found in the Azure Docs here: [Rehydrate blob data from the archive tier](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration)
+More info on the rehydration process from Archive can be found in the Azure Docs here: [Rehydrate blob data from the archive tier](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration)
 
 
 In this sample we are sharing 2 options, one using PowerShell and another using a .NET Docker Container. The first option is very lightweight, however doesn't include some of the features of the .NET option. 
 
 ## Considerations
 
-Both of these options require iterating over all the objects in the storage account and calling the API to request that the objects be moved from Archive to Hot/Cool. The number of files you have will drive how long this process will take and how many transactions you will consume. Moreover, the data retrieval costs are based on the amount of data you need to restore. Consult the [Pricing section](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration?#pricing-and-billing) of the Azure Docs to learn more.
+Both of these options require iterating over all the objects in the storage account and calling the API to request that the objects be moved to a different tier. The number of files you have will drive how long this process will take and how many transactions you will consume. Moreover, the data retrieval costs are based on the amount of data you need to restore. Consult the [Pricing section](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration?#pricing-and-billing) of the Azure Docs to learn more.
 
 
 ## PowerShell Option
@@ -84,7 +84,8 @@ write-host "Complete processing of all blobs returned with prefix " $prefix
 This option leverages:
 
 - [Multi-threaded Architecture](https://docs.microsoft.com/dotnet/api/system.threading.semaphoreslim) to increase total throughput. 
-  - Threads are spawned based on the naming convention in your storage account using a `/` as the delimiter, see [here](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.getblobsbyhierarchy) for more info.
+  - Threads are spawned based on the naming convention in your storage account using a delimiter. 
+  - By default we use a `/` but it can be modified via configuration. See [here](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.getblobsbyhierarchy) for more info.
 - Use of the [Batch API](https://docs.microsoft.com/rest/api/storageservices/blob-batch) to reduce calls to SetBlobTier
 - Deployment to an [Azure Container Instance](https://azure.microsoft.com/services/container-instances/) to reduce network latency vs running over the internet
 - Monitoring with [Application Insights](https://docs.microsoft.com/azure/azure-monitor/app/app-insights-overview)
@@ -192,11 +193,25 @@ az container create \
         APPINSIGHTS_INSTRUMENTATIONKEY=$AIKEY \
         StorageConnectionString=$STORAGEACCTCS \
         Container=$STORAGECNT \
-        Prefix="" \
         WhatIf="false" \
-        ThreadCount="0" \
+        SourceAccessTier="Archive" \
         TargetAccessTier="Hot"
 ```
+
+#### Configuration Options
+
+- StorageConnectionString - full connection string to the storage account
+- Container - name of the storage container you want to look in
+- Prefix - Filters the results to return only blobs whose names begin with the specified prefix
+  - [More Info](https://docs.microsoft.com/rest/api/storageservices/list-blobs)
+- Delimiter - Used to break the run into different chunks that can be partitioned to different threads
+  - by default a `\` is used
+  - you might choose to use a different value if you use a different character in your path. For example you might choose to use a `-` if you have guids in your path. 
+- SourceAccessTier - the tier to move blobs FROM
+- TargetAccessTier - the tier to move blobs TO
+- ThreadCount - the number of threads to use
+  - by default this is the number of cores * 8
+- WhatIf - if you set this to true, the app will iterate over the account and do all the loging, it just will not make any changes to the blob tiers. If you set it to false the app will request changes to blob tiers. 
 
 
 #### Delete the deployment
