@@ -199,7 +199,7 @@ az container create \
 ```
 
 
-#### Run the for each container in the storage account
+#### Run the sample for each container in the storage account
 
 This will get a list of storage containers from the storage account and create one ACI instance to work on each container.
 
