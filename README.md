@@ -277,8 +277,8 @@ dependencies
 | project timestamp,
      Run=tostring(customDimensions["Run"]), 
      Delimiter=tostring(customDimensions["Delimiter"]), 
-     Prefix =tostring(customDimensions["Prefix "]),
-     ThreadCount =tostring(customDimensions["ThreadCount "]),
+     Prefix=tostring(customDimensions["Prefix"]),
+     ThreadCount=tostring(customDimensions["ThreadCount"]),
      WhatIf=tostring(customDimensions["WhatIf"]),
      SourceAccessTier=tostring(customDimensions["SourceAccessTier"]),
      TargetAccessTier=tostring(customDimensions["TargetAccessTier"])
@@ -287,7 +287,7 @@ dependencies
 // Status for each run
 dependencies
 | where name == "Do Work"
-| project timestamp,
+| extend timestamp,
      duration,
      Run=tostring(customDimensions["Run"]), 
      Blobs=tolong(customMeasurements["Blobs"]),
@@ -325,7 +325,6 @@ dependencies
     run=tostring(customDimensions["Run"]),
     BatchSize=tolong(customMeasurements["BatchSize"])
 | order by timestamp 
-
 ```
 
 > NOTE: If you are using AI with Log Analytics, the `dependencies` table is called `AppDependencies` and some fo the column names are different. 
