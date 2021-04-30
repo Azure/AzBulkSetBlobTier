@@ -287,7 +287,7 @@ dependencies
 // Status for each run
 dependencies
 | where name == "Do Work"
-| extend timestamp,
+| project timestamp,
      duration,
      Run=tostring(customDimensions["Run"]), 
      Blobs=tolong(customMeasurements["Blobs"]),
