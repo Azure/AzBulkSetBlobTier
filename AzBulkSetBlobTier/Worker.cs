@@ -104,7 +104,7 @@ namespace AzBulkSetBlobTier
                 }
                 else if (_config.TargetAccessTier.Equals("Archive", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    _targetAccessTier = AccessTier.Cool;
+                    _targetAccessTier = AccessTier.Archive;
                 }
                 else
                 {
@@ -125,7 +125,7 @@ namespace AzBulkSetBlobTier
                 }
                 else if (_config.SourceAccessTier.Equals("Archive", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    _sourceAccessTier = AccessTier.Cool;
+                    _sourceAccessTier = AccessTier.Archive;
                 }
                 else
                 {

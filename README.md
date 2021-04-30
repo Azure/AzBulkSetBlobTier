@@ -232,6 +232,40 @@ az container delete -n $ACI -g $RG -y
 
 ### Monitoring
 
+The tool outputs logs to Application Insights. This allows you a robust tool to monitor many instances of this tool running in parallel. 
+
+The tool logs the following operation types and additional properties/metrics to the dependencies/AppDependencies table in Application Insights.
+
+- Setup
+  - Run - this property is a GUID generated when the docker container starts. It allows you to tie all the logs for a given run together. There should be 1 of these per instance. Written when the job starts.  
+  - Delimiter - this property lists the configured Delimiter value
+  - Prefix - this property lists the configured Prefix value
+  - ThreadCount - this property lists the configured ThreadCount value
+  - WhatIf - this property lists the configured WhatIf value
+  - TargetAccessTier - this property lists the configured TargetAccessTier value
+  - SourceAccessTier - this property lists the configured SourceAccessTier value
+- Do Work - for the entire storage container. There should be 1 of these per instance. Written when the job ends.
+  - Run - this property is a GUID generated when the docker container starts. It allows you to tie all the logs for a given run together. 
+  - Blobs - total number of block blobs
+  - Bytes - total size of block blobs
+  - Hot Blobs - total number of hot block blobs before any blobs were moved
+  - Hot Bytes - total size of hot block blobs before any blobs were moved
+  - Cool Blobs - total number of cool block blobs before any blobs were moved
+  - Cool Bytes - total number of cool block blobs before any blobs were moved
+  - Archive Blobs - total number of archive block blobs before any blobs were moved
+  - Archive Bytes - total number of archive block blobs before any blobs were moved
+  - Archive To Hot Blobs - total number of hot block blobs pending move from a prior request, these blobs are ignored by the tool since they have a pending request on them
+  - Archive To Hot Bytes - total number of hot block blobs pending move from a prior request, these blobs are ignored by the tool since they have a pending request on them
+  - Archive To Cool Blobs - total number of hot block blobs pending move from a prior request, these blobs are ignored by the tool since they have a pending request on them
+  - Archive To Cool Bytes - total number of hot block blobs pending move from a prior request, these blobs are ignored by the tool since they have a pending request on them
+- ProcessPrefix - for just the current prefix - use this to monitor how well you are multi threading. There should be one of these per prefix scanned. Written after that prefix is done. 
+  - Run - this property is a GUID generated when the docker container starts. It allows you to tie all the logs for a given run together. 
+  - Prefix - the path that this thread is processing, current only, doesn't include any sub paths
+- ProcessBatch - a batch of files that we requested moves for. There should be one of these for each batch of files that the tool needs to request a move for.
+  - Run - this property is a GUID generated when the docker container starts. It allows you to tie all the logs for a given run together. 
+  - BatchSize - the number of files in the batch, should be no bigger than 250
+
+
 You can run this Kusto query to see logs for the last run.
 
 If you are using AI without Log Analytics (the default for this sample)
