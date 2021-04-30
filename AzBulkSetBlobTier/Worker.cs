@@ -56,6 +56,13 @@ namespace AzBulkSetBlobTier
                 _logger.LogInformation($"Run = {_config.Run}");
                 op.Telemetry.Properties.Add("Run", _config.Run);
 
+                _logger.LogInformation($"Container = {_config.Container}");
+                op.Telemetry.Properties.Add("Container", _config.Container);
+
+                var blobServiceClient = new BlobServiceClient(_config.StorageConnectionString);
+                _logger.LogInformation($"StorageAccountName = {blobServiceClient.AccountName}");
+                op.Telemetry.Properties.Add("StorageAccountName", blobServiceClient.AccountName);
+
                 //Default the delimiter to a slash if not provided
                 if (string.IsNullOrEmpty(_config.Delimiter))
                 {

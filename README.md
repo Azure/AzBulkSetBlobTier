@@ -240,6 +240,8 @@ The tool logs the following operation types and additional properties/metrics to
   - Run - this property is a GUID generated when the docker container starts. It allows you to tie all the logs for a given run together. There should be 1 of these per instance. Written when the job starts.  
   - Delimiter - this property lists the configured Delimiter value
   - Prefix - this property lists the configured Prefix value
+  - Container - this property lists the configured Container value
+  - StorageAccountName - this property lists the configured Storage Account Name value
   - ThreadCount - this property lists the configured ThreadCount value
   - WhatIf - this property lists the configured WhatIf value
   - TargetAccessTier - this property lists the configured TargetAccessTier value
@@ -278,6 +280,8 @@ dependencies
      Run=tostring(customDimensions["Run"]), 
      Delimiter=tostring(customDimensions["Delimiter"]), 
      Prefix=tostring(customDimensions["Prefix"]),
+     Container=tostring(customDimensions["Container"]),
+     StorageAccountName=tostring(customDimensions["StorageAccountName"]),
      ThreadCount=tostring(customDimensions["ThreadCount"]),
      WhatIf=tostring(customDimensions["WhatIf"]),
      SourceAccessTier=tostring(customDimensions["SourceAccessTier"]),
