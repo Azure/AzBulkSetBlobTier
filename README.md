@@ -271,23 +271,64 @@ You can run this Kusto query to see logs for the last run.
 If you are using AI without Log Analytics (the default for this sample)
 
 ``` sql
+// Setup information for each run
+dependencies
+| where name == 'Setup'
+| project timestamp,
+     Run=tostring(customDimensions["Run"]), 
+     Delimiter=tostring(customDimensions["Delimiter"]), 
+     Prefix =tostring(customDimensions["Prefix "]),
+     ThreadCount =tostring(customDimensions["ThreadCount "]),
+     WhatIf=tostring(customDimensions["WhatIf"]),
+     SourceAccessTier=tostring(customDimensions["SourceAccessTier"]),
+     TargetAccessTier=tostring(customDimensions["TargetAccessTier"])
+| order by timestamp 
+
+// Status for each run
+dependencies
+| where name == "Do Work"
+| project timestamp,
+     duration,
+     Run=tostring(customDimensions["Run"]), 
+     Blobs=tolong(customMeasurements["Blobs"]),
+     GiB=round(tolong(customMeasurements["Bytes"])/exp2(30),2),
+     HotBlobs=tolong(customMeasurements["Hot Blobs"]),
+     HotGiB=round(tolong(customMeasurements["Hot Bytes"])/exp2(30),2),
+     CoolBlobs=tolong(customMeasurements["Cool Blobs"]),
+     CoolGiB=round(tolong(customMeasurements["Cool Bytes"])/exp2(30),2),
+     ArchiveBlobs=tolong(customMeasurements["Archive Blobs"]),
+     ArchiveGiB=round(tolong(customMeasurements["Archive Bytes"])/exp2(30),2),
+     ArchiveToCoolBlobs=tolong(customMeasurements["Archive To Cool Blobs"]),
+     ArchiveToCoolGiB=round(tolong(customMeasurements["Archive To Cool Bytes"])/exp2(30),2),
+     ArchiveToHotBlobs=tolong(customMeasurements["Archive To Hot Blobs"]),
+     ArchiveToHotGiB=round(tolong(customMeasurements["Archive To Hot Bytes"])/exp2(30),2)
+| order by timestamp
+
+// Details of each prefix/thread for the last run
 let runs = dependencies | summarize TimeGenerated=max(timestamp) by run=tostring(customDimensions["Run"]) | order by TimeGenerated | take 1 ;
 dependencies
 | where tostring(customDimensions["Run"]) in (runs)
-| extend run=tostring(customDimensions["Run"])
+    and target == 'ProcessPrefix'
+| project timestamp,
+    duration,
+    run=tostring(customDimensions["Run"]),
+    Prefix=tostring(customDimensions["Prefix"])
 | order by timestamp 
+
+// Details of each batch for the last run
+let runs = dependencies | summarize TimeGenerated=max(timestamp) by run=tostring(customDimensions["Run"]) | order by TimeGenerated | take 1 ;
+dependencies
+| where tostring(customDimensions["Run"]) in (runs)
+    and target == 'ProcessBatch'
+| project timestamp,
+    duration,
+    run=tostring(customDimensions["Run"]),
+    BatchSize=tolong(customMeasurements["BatchSize"])
+| order by timestamp 
+
 ```
 
-If you are using AI with Log Analytics
-
-``` sql
-let runs = AppDependencies | summarize TimeGenerated=max(TimeGenerated) by run=tostring(Properties["Run"]) | order by TimeGenerated | take 1 ;
-AppDependencies
-| where tostring(Properties["Run"]) in (runs)
-| extend run=tostring(Properties["Run"])
-| order by TimeGenerated 
-```
-
+> NOTE: If you are using AI with Log Analytics, the `dependencies` table is called `AppDependencies` and some fo the column names are different. 
 
 ## Contributing
 
