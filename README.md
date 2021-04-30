@@ -198,6 +198,47 @@ az container create \
         TargetAccessTier="Hot"
 ```
 
+
+#### Run the for each container in the storage account
+
+This will get a list of storage containers from the storage account and create one ACI instance to work on each container.
+
+``` bash
+# Request authentication information from container registry
+ACRSVR="$(az acr show --name $ACR --query loginServer -o tsv)"
+ACRUSER="$(az acr credential show --name $ACR --query username  -o tsv)"
+ACRPWD="$(az acr credential show --name $ACR --query passwords[0].value -o tsv)"
+
+# Request authentication information from application insights
+AIKEY="$(az monitor app-insights component show --app $AI --query instrumentationKey -g $RG -o tsv)"
+
+# Request authentication information from storage account
+STORAGEACCTCS="$(az storage account show-connection-string --name $STORAGEACCT -g $RG -o tsv)"
+
+# Deploy & Run an instance of the sample to ACI for each storage container
+for container in `az storage container list --connection-string $STORAGEACCTCS -o tsv --query [].name`; do
+  az container create \
+      --name $ACI$RANDOM \
+      --resource-group $RG \
+      --location $REGION \
+      --cpu 2 \
+      --memory 4 \
+      --registry-login-server $ACRSVR \
+      --registry-username $ACRUSER \
+      --registry-password $ACRPWD \
+      --image "$ACRSVR/azbulksetblobtier:latest" \
+      --restart-policy Never \
+      --no-wait \
+      --environment-variables \
+          APPINSIGHTS_INSTRUMENTATIONKEY=$AIKEY \
+          StorageConnectionString=$STORAGEACCTCS \
+          Container=$container \
+          WhatIf="false" \
+          SourceAccessTier="Archive" \
+          TargetAccessTier="Hot"
+done
+```
+
 #### Configuration Options
 
 - StorageConnectionString - full connection string to the storage account
