@@ -18,6 +18,8 @@ urlFragment: azbulksetblobtier
 
 The goal of this sample application is to show an efficient way to queue all the objects in an Azure Storage Container for moving from/to any of the storage tiers Hot, Cool or Archive. 
 
+> If you just need to move to a cooler tier (i.e. hot -> cool, hot -> archive, cool -> archive), take a look at [Lifecycle Management](https://docs.microsoft.com/azure/storage/blobs/storage-lifecycle-management-concepts). Lifecycle Management is a officially support Azure feature. 
+
 Moving objects storage tiers is a two step process:
 
 - Step 1: you call the SetBlobTier API to enqueue a request to Azure Storage to perform the move
