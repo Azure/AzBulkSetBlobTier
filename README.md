@@ -272,6 +272,7 @@ az container delete -n $ACI -g $RG -y
 - Running the application in WhatIf mode is a good way to get an idea of if the files have been read off of archive and put back in your tier of choice (hot/cool). However, it needs to scan each object in the container to do this. For larger containers this will take time and consume storage transactions.
 - You can rerun the above bash script with different values for your environmental variables to change them, without needing to delete and recreate the ACI instance.
 - You can run multiple instances of ACI (with different names) if you want to process multiple storage accounts/containers at the same time.
+- If objects are created while the script is running they might not get tiered. Moreover, the script could miss moving an object if a call fails for wahtever reason. You can rerun the script with the same parameters on the same storage account and container to doublecheck that everything has been moved.
 
 ### Monitoring
 
