@@ -14,8 +14,6 @@ urlFragment: azbulksetblobtier
 
 # AzBulkSetBlobTier
 
-** DRAFT **
-
 The goal of this sample application is to show an efficient way to queue all the objects in an Azure Storage Container for moving from/to any of the storage tiers Hot, Cool or Archive. 
 
 > If you just need to move to a cooler tier (i.e. hot -> cool, hot -> archive, cool -> archive), take a look at [Lifecycle Management](https://docs.microsoft.com/azure/storage/blobs/storage-lifecycle-management-concepts). Lifecycle Management is a officially support Azure feature. 
@@ -36,7 +34,13 @@ In this sample we are sharing 2 options, one using PowerShell and another using 
 
 ## Considerations
 
-Both of these options require iterating over all the objects in the storage account and calling the API to request that the objects be moved to a different tier. The number of files you have will drive how long this process will take and how many transactions you will consume. Moreover, the data retrieval costs are based on the amount of data you need to restore. Consult the [Pricing section](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration?#pricing-and-billing) of the Azure Docs to learn more.
+### Listing the files to be moved
+
+Both of these options require iterating over all the objects in the storage account and calling the API to request that the objects be moved to a different tier. The number of files you have and how you name the files in your storage account will drive how long this process will take and how many transactions you will consume. If you want to avoid iteration you can update these samples to use the [Azure Storage Blob Inventory](https://docs.microsoft.com/azure/storage/blobs/blob-inventory) feature. 
+
+### Cost of data retrieval
+
+Data retrieval costs are based on the amount of data you need to restore and the file sizes of that data. Consult the [Pricing section](https://docs.microsoft.com/azure/storage/blobs/storage-blob-rehydration?#pricing-and-billing) of the Azure Docs to learn more.
 
 
 ## PowerShell Option
@@ -88,11 +92,13 @@ This option leverages:
 - [Multi-threaded Architecture](https://docs.microsoft.com/dotnet/api/system.threading.semaphoreslim) to increase total throughput. 
   - Threads are spawned based on the naming convention in your storage account using a delimiter. 
   - By default we use a `/` but it can be modified via configuration. See [here](https://docs.microsoft.com/dotnet/api/azure.storage.blobs.blobcontainerclient.getblobsbyhierarchy) for more info.
+  - For the largest storage accounts (i.e. billions of objects). This Multi-threaded Architecture will likely not provide enough scale, and the job will likely need to be partitioned accross multiple container instances. 
 - Use of the [Batch API](https://docs.microsoft.com/rest/api/storageservices/blob-batch) to reduce calls to SetBlobTier
 - Deployment to an [Azure Container Instance](https://azure.microsoft.com/services/container-instances/) to reduce network latency vs running over the internet
 - Monitoring with [Application Insights](https://docs.microsoft.com/azure/azure-monitor/app/app-insights-overview)
 
 You can deploy the sample as is or modify it to fit your unique needs.
+
 
 ### Prerequisites
 
